@@ -1,0 +1,14 @@
+config:
+  target: "http://localhost:3000" # Replace with your API's base URL
+  phases:
+    - duration: 300 # Run the test for 300 seconds (5 minutes)
+      arrivalRate: 50 # Start with 50 users per second
+      rampTo: 50 # Ramp up to 50 users per second
+
+scenarios:
+  - flow:
+      - post:
+          url: /api/v1/users/auth # Replace with your API endpoint
+          json:
+            email: "cyrocyro19@gmail.com" # Generate random number + @gmail.com
+            password: "11111111"

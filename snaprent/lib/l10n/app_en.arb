@@ -1,0 +1,9 @@
+{
+  "@@locale": "en",
+  "settings": "Settings",
+  "enableNotifications": "Enable Notifications",
+  "darkMode": "Dark Mode",
+  "language": "Language",
+  "saveSettings": "Save Settings",
+  "logout": "Logout"
+}

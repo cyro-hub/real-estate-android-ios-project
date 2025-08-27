@@ -1,0 +1,9 @@
+{
+  "@@locale": "fr",
+  "settings": "Paramètres",
+  "enableNotifications": "Activer les notifications",
+  "darkMode": "Mode sombre",
+  "language": "Langue",
+  "saveSettings": "Enregistrer les paramètres",
+  "logout": "Se déconnecter"
+}
