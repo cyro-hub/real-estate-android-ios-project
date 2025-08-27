@@ -2,7 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:snaprent/widgets/snack_bar.dart';
 
 String formatPrice(num price) {
-  if (price >= 1000000) {
+  if (price >= 1000000000000) {
+    return '${(price / 1000000000000).toStringAsFixed((price % 1000000000000 == 0) ? 0 : 2)}tril';
+  } else if (price >= 1000000000) {
+    return '${(price / 1000000000).toStringAsFixed((price % 1000000000 == 0) ? 0 : 2)}bil';
+  } else if (price >= 1000000) {
     return '${(price / 1000000).toStringAsFixed((price % 1000000 == 0) ? 0 : 2)}mil';
   } else if (price >= 1000) {
     return '${(price / 1000).toStringAsFixed((price % 1000 == 0) ? 0 : 2)}k';

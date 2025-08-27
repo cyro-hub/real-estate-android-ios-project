@@ -4,7 +4,6 @@ import 'package:snaprent/core/constant.dart';
 import 'package:snaprent/screens/property_screens/add_property_screen.dart';
 import 'package:snaprent/screens/user_screens/users_properties.dart';
 import 'package:snaprent/screens/user_screens/privacy_policy_screen.dart';
-import 'package:snaprent/screens/user_screens/settings_screen.dart';
 import 'package:snaprent/services/api_service.dart';
 import 'package:snaprent/widgets/screen_guard.dart';
 import 'package:snaprent/widgets/snack_bar.dart';
@@ -119,12 +118,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     );
   }
 
-  void navigateToSettings() {
-    Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => ScreenGuard(screen: SettingScreen())),
-    );
-  }
-
   Widget _buildProfileItem({
     required String label,
     Widget? trailing,
@@ -217,14 +210,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           ),
 
           // Settings icon
-          Positioned(
-            top: MediaQuery.of(context).padding.top + 16,
-            right: 16,
-            child: IconButton(
-              onPressed: navigateToSettings,
-              icon: const Icon(Icons.settings, color: Colors.white, size: 28),
-            ),
-          ),
 
           // Draggable Sheet
           DraggableScrollableSheet(

@@ -47,35 +47,28 @@ class AuthNotifier extends StateNotifier<AsyncValue<AuthState?>> {
   }
 
   Future<void> refreshIfNeeded() async {
-    // Use the current state to check for a token
     final authState = state.valueOrNull;
 
-    // Check if the token exists and is about to expire
     if (authState == null || !authState.willExpireSoon) {
       return;
     }
 
     try {
-      state = AsyncValue.loading();
+      state = const AsyncValue.loading();
       final newTokens = await _refreshTokenFn(authState.refreshToken);
       final newAuthState = AuthState(
         accessToken: newTokens['accessToken'] as String,
         refreshToken: newTokens['refreshToken'] as String,
-        expiresAt: DateTime.now().add(
-          const Duration(minutes: 10),
-        ), // Assuming a 10 min expiry
+        expiresAt: DateTime.now().add(const Duration(minutes: 10)),
         userId: authState.userId,
       );
       state = AsyncValue.data(newAuthState);
       await _prefs.setString(_authKey, jsonEncode(newAuthState.toJson()));
-      debugPrint('Token refreshed successfully.');
+      // debugPrint('Token refreshed successfully.');
     } catch (e, stack) {
-      debugPrint('Token refresh failed: $e');
-      debugPrintStack(stackTrace: stack);
-      // If refresh fails, don't clear the state or log out.
-      // Simply return and let the user continue their session.
-      // They may encounter API errors later, which is expected.
-      state = AsyncValue.data(authState); // Revert to the previous state
+      // debugPrint('Token refresh failed: $e');
+      // debugPrintStack(stackTrace: stack);
+      state = const AsyncValue.data(null);
     }
   }
 }

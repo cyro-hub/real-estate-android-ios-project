@@ -4,6 +4,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:snaprent/core/constant.dart';
 import 'package:snaprent/core/mock_data.dart';
 import 'package:snaprent/services/api_service.dart';
+import 'package:snaprent/widgets/filter_drawer.dart';
+import 'package:snaprent/widgets/setting_drawer_widget.dart';
 import 'package:snaprent/widgets/snack_bar.dart';
 import '../../widgets/safe_scaffold.dart';
 import 'package:snaprent/widgets/property_widgets/property_card.dart';
@@ -20,10 +22,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   List<String> towns = defaultTowns;
   List<Map<String, dynamic>> properties = [];
 
-  String? selectedLocation;
   String? searchQuery;
+  String? selectedLocation;
   String? selectedPropertyType;
-  String? maxRent;
+  double? maxRent;
   String? paymentFrequency;
   String? toilet;
   String? bathroom;
@@ -39,7 +41,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   final int _limit = 10;
 
   late FocusNode _focusNode;
-  // ApiService is now accessed via ref.read(), no need to declare it here
   late ScrollController _scrollController;
 
   @override
@@ -47,7 +48,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     super.initState();
     _focusNode = FocusNode();
     _scrollController = ScrollController()..addListener(_onScroll);
-    _focusNode.addListener(() => setState(() {})); // update icon color
+    _focusNode.addListener(() => setState(() {}));
 
     fetchTowns();
     _fetchProperties(page: 1);
@@ -79,6 +80,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       if (value is bool) {
         if (value == false) return;
         queryParams[key] = value.toString();
+        return;
+      }
+      if (value is double) {
+        if (value == 0) return;
+        queryParams[key] = value.toInt().toString();
         return;
       }
       queryParams[key] = value.toString();
@@ -117,7 +123,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     }
 
     try {
-      // Correct Riverpod usage: read the provider
       final data = await ref.read(apiServiceProvider).get('properties/town');
       if (!mounted) return;
       setState(() => towns = List<String>.from(data["data"]));
@@ -144,7 +149,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
     try {
       final filters = buildQueryParameters(page: page);
-      // Correct Riverpod usage: read the provider
       final data = await ref
           .read(apiServiceProvider)
           .get('properties/search', filters);
@@ -152,7 +156,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       List<dynamic> fetchedProperties = [];
       if (data is List) {
         fetchedProperties = data;
-        _totalPages = 1; // if backend returns list only
+        _totalPages = 1;
       } else if (data is Map<String, dynamic> && data['data'] is List) {
         fetchedProperties = data['data'];
         _totalPages = data['meta']?['totalPages'] ?? 1;
@@ -183,6 +187,85 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     }
   }
 
+  void _showFilterDrawer() async {
+    final results = await showGeneralDialog(
+      context: context,
+      barrierLabel: "Filter Drawer",
+      barrierDismissible: true,
+      barrierColor: Colors.black.withOpacity(0.4),
+      transitionDuration: const Duration(milliseconds: 300),
+      pageBuilder: (_, __, ___) {
+        final double screenHeight = MediaQuery.of(context).size.height;
+        final double screenWidth = MediaQuery.of(context).size.width;
+
+        return Align(
+          alignment: Alignment
+              .bottomCenter, // Align to bottom-center for bottom-up slide
+          child: Material(
+            type: MaterialType.transparency,
+            child: Container(
+              width: screenWidth, // Full screen width
+              height: screenHeight,
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.only(
+                  topLeft: Radius.circular(0), // No border radius
+                  topRight: Radius.circular(0), // No border radius
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black26,
+                    blurRadius: 10,
+                    spreadRadius: 2,
+                  ),
+                ],
+              ),
+              child: FilterDrawer(
+                towns: towns,
+                initialSelectedLocation: selectedLocation,
+                initialMaxRent: maxRent,
+                initialPaymentFrequency: paymentFrequency,
+                initialToilet: toilet,
+                initialBathroom: bathroom,
+                initialKitchen: kitchen,
+                initialWaterAvailable: waterAvailable,
+                initialElectricity: electricity,
+                initialParking: parking,
+              ),
+            ),
+          ),
+        );
+      },
+      transitionBuilder: (_, animation, __, child) {
+        return SlideTransition(
+          position: Tween(
+            begin: const Offset(0, 1), // Start from off-screen bottom
+            end: Offset.zero, // End at its normal position
+          ).animate(animation),
+          child: child,
+        );
+      },
+    );
+
+    if (results != null) {
+      final filterResults = results as Map<String, dynamic>;
+
+      // print('Filter Results: $filterResults');
+      setState(() {
+        selectedLocation = filterResults['location'];
+        maxRent = filterResults['maxRent'];
+        paymentFrequency = filterResults['paymentFrequency'];
+        toilet = filterResults['toilet'];
+        bathroom = filterResults['bathroom'];
+        kitchen = filterResults['kitchen'];
+        waterAvailable = filterResults['waterAvailable'];
+        electricity = filterResults['electricity'];
+        parking = filterResults['parking'];
+      });
+      _refreshProperties();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return SafeScaffold(
@@ -191,38 +274,44 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         children: [
           const SizedBox(height: 8),
 
-          // Location dropdown + Filter icon
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Row(
-                children: [
-                  Icon(Icons.location_on, size: 16, color: Colors.indigo),
-                  const SizedBox(width: 8),
-                  DropdownButton<String?>(
-                    value: selectedLocation,
-                    underline: const SizedBox(),
-                    onChanged: (newValue) {
-                      setState(() => selectedLocation = newValue);
-                      _refreshProperties();
-                    },
-                    items: [
-                      const DropdownMenuItem(
-                        value: null,
-                        child: Text('Select town'),
-                      ),
-                      ...towns.map(
-                        (loc) => DropdownMenuItem(value: loc, child: Text(loc)),
-                      ),
-                    ],
-                    menuMaxHeight: MediaQuery.of(context).size.height * 0.7,
-                  ),
-                ],
+              InkWell(
+                borderRadius: BorderRadius.circular(
+                  8,
+                ), // optional rounded ripple
+                onTap: _showFilterDrawer, // Calls the new filter drawer
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(
+                      Icons.location_on,
+                      size: 16,
+                      color: Colors.indigo,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      selectedLocation ?? 'Select town',
+                      style: const TextStyle(color: Colors.black, fontSize: 14),
+                    ),
+                    const SizedBox(width: 4),
+                    const Icon(
+                      Icons.keyboard_arrow_down,
+                      size: 28,
+                      color: Colors.indigo,
+                    ),
+                  ],
+                ),
               ),
               IconButton(
-                icon: const Icon(Icons.tune, color: Colors.indigo, size: 32),
+                icon: const Icon(
+                  Icons.settings,
+                  color: Colors.indigo,
+                  size: 28,
+                ),
                 onPressed: () {
-                  // open filter drawer logic here
+                  showSettingsDrawer(context, ref); // Calls the settings drawer
                 },
               ),
             ],

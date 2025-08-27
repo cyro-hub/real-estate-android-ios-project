@@ -1,12 +1,9 @@
-// File: lib/main.dart
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:snaprent/l10n/app_localizations.dart';
-import 'package:snaprent/models/auth_state.dart';
 import 'package:snaprent/providers/auth_provider.dart';
 import 'package:snaprent/providers/language_provider.dart';
 import 'package:snaprent/services/api_service.dart';
@@ -15,7 +12,6 @@ import 'screens/main_navigation.dart';
 import 'screens/onboarding_screen.dart';
 import 'core/themes.dart';
 
-// Use a GlobalKey to manage the NavigatorState
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
 final onboardingSeenProvider = Provider<bool>((ref) => false);
@@ -106,20 +102,14 @@ class _MyAppState extends ConsumerState<MyApp> {
     final locale = ref.watch(languageProvider);
 
     return MaterialApp(
-      // Use the global key directly
       navigatorKey: navigatorKey,
       debugShowCheckedModeBanner: false,
       title: 'SnapRent',
       theme: lightTheme,
       navigatorObservers: [routeObserver],
+      supportedLocales: AppLocalizations.supportedLocales,
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
       locale: locale,
-      supportedLocales: const [Locale('en'), Locale('fr')],
-      localizationsDelegates: const [
-        GlobalMaterialLocalizations.delegate,
-        GlobalWidgetsLocalizations.delegate,
-        GlobalCupertinoLocalizations.delegate,
-        AppLocalizations.delegate,
-      ],
       home: AnnotatedRegion<SystemUiOverlayStyle>(
         value: const SystemUiOverlayStyle(
           statusBarColor: Colors.transparent,
