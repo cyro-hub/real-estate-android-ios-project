@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:snaprent/screens/main_navigation.dart';
-import 'package:snaprent/screens/user_screens/privacy_policy_screen.dart';
+import 'package:snaprent/widgets/user_widgets/privacy_policies_widget.dart';
 
 class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({super.key});
@@ -146,7 +146,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                 // If last page is Terms and Conditions
                 if (page['title'] == 'Terms and Conditions') {
                   return Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 30),
+                    padding: const EdgeInsets.symmetric(horizontal: 4),
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
@@ -159,11 +159,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                           textAlign: TextAlign.center,
                         ),
                         const SizedBox(height: 20),
-                        Expanded(
-                          child: SingleChildScrollView(
-                            child: TermsAndPrivacyScreen(),
-                          ),
-                        ),
+                        Expanded(child: buildPrivacyPoliciesWidget(context)),
                       ],
                     ),
                   );

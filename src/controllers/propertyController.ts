@@ -32,8 +32,9 @@ export default class PropertyController {
 
   updateProperty = this.asyncHandler.handler(
     async (req: Request, res: Response, next: NextFunction) => {
+      // console.log(req.body);
       const property = await this.propertyService.updateProperty(
-        req.query._id as string,
+        req.params._id as string,
         req.body
       );
       return this.apiResponse

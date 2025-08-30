@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:snaprent/providers/language_provider.dart';
+import 'package:snaprent/screens/user_screens/profile_screen.dart';
+import 'package:snaprent/screens/user_screens/users_properties.dart';
+import 'package:snaprent/services/screen_guard.dart';
 import 'package:snaprent/widgets/snack_bar.dart';
 import '../../providers/auth_provider.dart';
 
@@ -38,7 +41,7 @@ void showSettingsDrawer(BuildContext context, WidgetRef ref) {
                 ),
               ],
             ),
-            child: const SettingDrawer(),
+            child: SettingDrawer(parentContext: context),
           ),
         ),
       );
@@ -56,7 +59,8 @@ void showSettingsDrawer(BuildContext context, WidgetRef ref) {
 }
 
 class SettingDrawer extends ConsumerStatefulWidget {
-  const SettingDrawer({super.key});
+  final BuildContext? parentContext;
+  const SettingDrawer({super.key, this.parentContext});
 
   @override
   ConsumerState<SettingDrawer> createState() => _SettingDrawerState();
@@ -65,6 +69,7 @@ class SettingDrawer extends ConsumerStatefulWidget {
 class _SettingDrawerState extends ConsumerState<SettingDrawer> {
   bool notificationsEnabled = true;
   bool darkMode = false;
+  late BuildContext _parentContext;
 
   final Map<String, String> languageMap = {"en": "English", "fr": "French"};
 
@@ -95,6 +100,12 @@ class _SettingDrawerState extends ConsumerState<SettingDrawer> {
     );
   }
 
+  @override
+  void initState() {
+    super.initState();
+    _parentContext = widget.parentContext ?? context;
+  }
+
   void _logout() {
     ref.read(authProvider.notifier).logout();
     SnackbarHelper.show(context, "Logged out successfully.");
@@ -103,8 +114,8 @@ class _SettingDrawerState extends ConsumerState<SettingDrawer> {
 
   @override
   Widget build(BuildContext context) {
-    // Get the current locale from the provider
     final currentLocale = ref.watch(languageProvider);
+    final user = ref.watch(authProvider).value?.user;
 
     return Padding(
       padding: const EdgeInsets.all(20),
@@ -117,14 +128,38 @@ class _SettingDrawerState extends ConsumerState<SettingDrawer> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text(""),
+                  InkWell(
+                    onTap: () {
+                      Navigator.of(context).pop();
+                      Navigator.of(_parentContext).push(
+                        MaterialPageRoute(
+                          builder: (_) =>
+                              const ScreenGuard(screen: ProfileScreen()),
+                        ),
+                      );
+                    },
+                    child: CircleAvatar(
+                      radius: 20,
+                      backgroundImage: user?.image != null
+                          ? NetworkImage(user!.image as String)
+                          : const AssetImage('assets/test/profile_pic.jpg')
+                                as ImageProvider,
+                    ),
+                  ),
                   IconButton(
                     icon: const Icon(Icons.close, color: Colors.black87),
                     onPressed: () => Navigator.of(context).pop(),
                   ),
                 ],
               ),
-              const SizedBox(height: 30),
+              const SizedBox(height: 24),
+              Text(
+                user?.fullName ?? "Guest User",
+                style: const TextStyle(
+                  color: Colors.indigo,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
 
               Expanded(
                 child: ListView(
@@ -179,10 +214,13 @@ class _SettingDrawerState extends ConsumerState<SettingDrawer> {
                         fontWeight: FontWeight.bold,
                       ),
                     ),
+
+                    const SizedBox(height: 12),
                     Padding(
                       padding: const EdgeInsets.symmetric(vertical: 12),
                       child: DropdownButtonFormField<String>(
-                        value: languageMap[currentLocale.languageCode],
+                        // Set the value to the language code, not the name
+                        value: currentLocale.languageCode,
                         decoration: InputDecoration(
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
@@ -194,30 +232,81 @@ class _SettingDrawerState extends ConsumerState<SettingDrawer> {
                           ),
                         ),
                         style: const TextStyle(color: Colors.black87),
-                        items: languageMap.values
+                        items: languageMap.entries
                             .map(
-                              (lang) => DropdownMenuItem(
-                                value: lang,
-                                child: Text(lang),
+                              (entry) => DropdownMenuItem(
+                                value: entry
+                                    .key, // The value is now the language code ('en', 'fr')
+                                child: Text(
+                                  entry.value,
+                                ), // The child is still the language name
                               ),
                             )
                             .toList(),
-                        onChanged: (val) async {
-                          if (val != null) {
-                            final newLanguageCode = languageMap.entries
-                                .firstWhere((entry) => entry.value == val)
-                                .key;
-
+                        onChanged: (newLanguageCode) async {
+                          if (newLanguageCode != null) {
+                            // The `newLanguageCode` is already what you need, so just use it
                             await ref
                                 .read(languageProvider.notifier)
                                 .setLanguage(newLanguageCode);
 
                             SnackbarHelper.show(
                               context,
-                              'Language changed to $val',
+                              'Language changed to ${languageMap[newLanguageCode]}',
                             );
                           }
                         },
+                      ),
+                    ),
+
+                    const SizedBox(height: 20),
+
+                    const Text(
+                      "User",
+                      style: TextStyle(
+                        color: Colors.indigo,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+
+                    const SizedBox(height: 16),
+                    InkWell(
+                      onTap: () {
+                        Navigator.of(context).pop();
+                        Navigator.of(_parentContext).push(
+                          MaterialPageRoute(
+                            builder: (_) =>
+                                const ScreenGuard(screen: ProfileScreen()),
+                          ),
+                        );
+                      },
+                      child: _buildSettingItem(
+                        label: "Profile",
+                        trailing: const Icon(
+                          Icons.person,
+                          color: Colors.indigo,
+                        ),
+                      ),
+                    ),
+
+                    const SizedBox(height: 16),
+                    InkWell(
+                      onTap: () {
+                        Navigator.of(context).pop();
+                        Navigator.of(_parentContext).push(
+                          MaterialPageRoute(
+                            builder: (_) => const ScreenGuard(
+                              screen: UsersPropertiesScreen(),
+                            ),
+                          ),
+                        );
+                      },
+                      child: _buildSettingItem(
+                        label: "Properties",
+                        trailing: const Icon(
+                          Icons.home_work,
+                          color: Colors.indigo,
+                        ),
                       ),
                     ),
                   ],

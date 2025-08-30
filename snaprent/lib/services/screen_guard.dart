@@ -32,7 +32,7 @@ class ScreenGuard extends ConsumerWidget {
 
       AsyncData(value: final auth) when auth != null => screen,
 
-      AsyncError(:final error, :final stackTrace) => Scaffold(
+      AsyncError(:final error) => Scaffold(
         body: Center(
           child: Text(
             'Auth Error: $error',
@@ -41,7 +41,7 @@ class ScreenGuard extends ConsumerWidget {
         ),
       ),
 
-      _ => const SizedBox.shrink(), 
+      _ => const SizedBox.shrink(),
     };
   }
 }

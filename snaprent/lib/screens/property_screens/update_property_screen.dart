@@ -5,24 +5,25 @@ import 'package:latlong2/latlong.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:snaprent/core/constant.dart';
 import 'package:snaprent/core/mock_data.dart';
-import 'package:snaprent/screens/property_screens/add_property_media_screen.dart';
 import 'package:snaprent/services/api_service.dart';
 import 'package:snaprent/widgets/input_widget.dart';
 import 'package:snaprent/widgets/safe_scaffold.dart';
-import 'package:snaprent/services/screen_guard.dart';
 import 'package:snaprent/widgets/snack_bar.dart';
 
-class AddPropertyScreen extends ConsumerStatefulWidget {
-  const AddPropertyScreen({super.key});
+class UpdatePropertyScreen extends ConsumerStatefulWidget {
+  final Map<String, dynamic> property;
+
+  const UpdatePropertyScreen({super.key, required this.property});
 
   @override
-  ConsumerState<AddPropertyScreen> createState() => _AddPropertyScreenState();
+  ConsumerState<UpdatePropertyScreen> createState() =>
+      _UpdatePropertyScreenState();
 }
 
-class _AddPropertyScreenState extends ConsumerState<AddPropertyScreen> {
+class _UpdatePropertyScreenState extends ConsumerState<UpdatePropertyScreen> {
   int _currentStep = 0;
 
-  // New Global keys for each step
+  // Global keys for each step
   final _step0FormKey = GlobalKey<FormState>();
   final _step1FormKey = GlobalKey<FormState>();
   final _step2FormKey = GlobalKey<FormState>();
@@ -42,7 +43,7 @@ class _AddPropertyScreenState extends ConsumerState<AddPropertyScreen> {
   final floorLevelController = TextEditingController();
   final sizeController = TextEditingController();
   final rentController = TextEditingController();
-  final securityDepositController = TextEditingController(text: "0");
+  final securityDepositController = TextEditingController();
   final agentNameController = TextEditingController();
   final phoneController = TextEditingController();
   final whatsappController = TextEditingController();
@@ -83,14 +84,86 @@ class _AddPropertyScreenState extends ConsumerState<AddPropertyScreen> {
   @override
   void initState() {
     super.initState();
-    _determinePosition();
+    _loadPropertyData(); // Load data from constructor
+    _determinePosition(); // Get current user location
+  }
+
+  // New method to load existing property data into the form
+  void _loadPropertyData() {
+    final property = widget.property;
+
+    // Set text controller values
+    titleController.text = property['title'] ?? '';
+    descriptionController.text = property['description'] ?? '';
+    propertyType = property['type'] ?? 'studio';
+    floorLevelController.text = (property['floorLevel'] ?? '').toString();
+    sizeController.text = property['size'] ?? '';
+    rentController.text = (property['rentAmount'] ?? '').toString();
+    paymentFrequency = property['paymentFrequency'] ?? 'monthly';
+    securityDepositController.text = (property['securityDeposit'] ?? '')
+        .toString();
+
+    // Check and set nested location data
+    if (property['location'] != null) {
+      final location = property['location'];
+
+      townController.text = location['town'] ?? '';
+      quarterController.text = location['quarter'] ?? '';
+      streetController.text = location['street'] ?? '';
+      landmarkController.text = location['landmark'] ?? '';
+
+      // Set map coordinates and center the map
+      if (location['coordinates'] != null &&
+          location['coordinates'].length >= 2) {
+        selectedCoordinates = LatLng(
+          location['coordinates'][1],
+          location['coordinates'][0],
+        );
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _mapController.move(selectedCoordinates, 15);
+        });
+      }
+    }
+
+    // Check and set nested amenities data
+    if (property['amenities'] != null) {
+      final amenities = property['amenities'];
+      toiletType = amenities['toilet'] ?? 'private';
+      bathroomType = amenities['bathroom'] ?? 'private';
+      kitchenType = amenities['kitchen'] ?? 'private';
+      meterType = amenities['meterType'] ?? 'prepaid';
+      furnished = amenities['furnished'] ?? false;
+      waterAvailable = amenities['waterAvailable'] ?? false;
+      electricity = amenities['electricity'] ?? false;
+      internet = amenities['internet'] ?? false;
+      parking = amenities['parking'] ?? false;
+      balcony = amenities['balcony'] ?? false;
+      ceilingFan = amenities['ceilingFan'] ?? false;
+      tiledFloor = amenities['tiledFloor'] ?? false;
+    }
+
+    // Check and set nested house rules data
+    if (property['houseRules'] != null) {
+      final houseRules = property['houseRules'];
+      smokingAllowed = houseRules['smokingAllowed'] ?? false;
+      petsAllowed = houseRules['petsAllowed'] ?? false;
+      visitorsAllowed = houseRules['visitorsAllowed'] ?? true;
+      quietHours = houseRules['quietHours'] ?? '10 PM - 6 AM';
+    }
+
+    // Check and set nested contact data
+    if (property['contact'] != null) {
+      final contact = property['contact'];
+      agentNameController.text = contact['agentName'] ?? '';
+      phoneController.text = contact['phone'] ?? '';
+      whatsappController.text = contact['whatsapp'] ?? '';
+    }
   }
 
   Future<void> _determinePosition() async {
     bool serviceEnabled;
     LocationPermission permission;
 
-    // Check if location service is enabled
     serviceEnabled = await Geolocator.isLocationServiceEnabled();
     if (!serviceEnabled) return;
 
@@ -101,7 +174,6 @@ class _AddPropertyScreenState extends ConsumerState<AddPropertyScreen> {
     }
     if (permission == LocationPermission.deniedForever) return;
 
-    // Get current position
     Position position = await Geolocator.getCurrentPosition();
     setState(() {
       selectedCoordinates = LatLng(position.latitude, position.longitude);
@@ -156,7 +228,7 @@ class _AddPropertyScreenState extends ConsumerState<AddPropertyScreen> {
         currentFormKey = _step7FormKey;
         break;
       default:
-        return;
+        currentFormKey = _step0FormKey; // Fallback
     }
 
     // Validate only the current step
@@ -164,8 +236,8 @@ class _AddPropertyScreenState extends ConsumerState<AddPropertyScreen> {
       if (_currentStep < 7) {
         setState(() => _currentStep += 1);
       } else {
-        // This is the last step, so call the submit function
-        submit();
+        // This is the last step, so call the update function
+        update();
       }
     } else {
       // Show a snackbar if validation fails
@@ -212,7 +284,8 @@ class _AddPropertyScreenState extends ConsumerState<AddPropertyScreen> {
     );
   }
 
-  Future<void> submit() async {
+  // New function to handle the update
+  Future<void> update() async {
     final propertyData = {
       "title": titleController.text.trim(),
       "description": descriptionController.text.trim(),
@@ -262,32 +335,29 @@ class _AddPropertyScreenState extends ConsumerState<AddPropertyScreen> {
           context,
         ),
       },
-      "createdAt": DateTime.now().toIso8601String(),
-      "expiresAt": DateTime.now()
-          .add(const Duration(days: 30))
-          .toIso8601String(),
     };
 
+    print(propertyData);
+
     try {
+      final propertyId = widget.property['_id'];
       final response = await ref
           .read(apiServiceProvider)
-          .post('properties', propertyData, context);
+          .put(
+            'properties/$propertyId', // Use PUT for full update
+            propertyData,
+            context,
+          );
 
-      if (response != null &&
-          response['data'] != null &&
-          response['data']['_id'] != null) {
-        final propertyId = response['data']['_id'];
-        Navigator.of(context).push(
-          MaterialPageRoute(
-            builder: (_) => ScreenGuard(
-              screen: AddPropertyMediaScreen(propertyId: propertyId),
-            ),
-          ),
-        );
+      if (response != null && response['success']) {
+        if (!mounted) return;
+        SnackbarHelper.show(context, "Property updated successfully.");
+        Navigator.of(context).pop();
       } else {
+        if (!mounted) return;
         SnackbarHelper.show(
           context,
-          "Failed to save property.",
+          "Failed to update property.",
           success: false,
         );
       }
@@ -307,45 +377,9 @@ class _AddPropertyScreenState extends ConsumerState<AddPropertyScreen> {
         onStepContinue: _nextStep,
         onStepCancel: _previousStep,
         onStepTapped: (index) {
-          // Validate the current step before allowing a tap to another step
-          GlobalKey<FormState> currentFormKey;
-          switch (_currentStep) {
-            case 0:
-              currentFormKey = _step0FormKey;
-              break;
-            case 1:
-              currentFormKey = _step1FormKey;
-              break;
-            case 2:
-              currentFormKey = _step2FormKey;
-              break;
-            case 3:
-              currentFormKey = _step3FormKey;
-              break;
-            case 4:
-              currentFormKey = _step4FormKey;
-              break;
-            case 5:
-              currentFormKey = _step5FormKey;
-              break;
-            case 6:
-              currentFormKey = _step6FormKey;
-              break;
-            case 7:
-              currentFormKey = _step7FormKey;
-              break;
-            default:
-              return;
-          }
-          if (currentFormKey.currentState!.validate()) {
-            setState(() => _currentStep = index);
-          } else {
-            SnackbarHelper.show(
-              context,
-              "Please fill in all required fields to continue.",
-              success: false,
-            );
-          }
+          if (_currentStep == index)
+            return; // Don't tap if it's the current step
+          _nextStep();
         },
         controlsBuilder: (context, details) {
           return Padding(
@@ -367,7 +401,7 @@ class _AddPropertyScreenState extends ConsumerState<AddPropertyScreen> {
                     ),
                   ),
                   child: Text(
-                    _currentStep == 7 ? "Add images" : "Continue",
+                    _currentStep == 7 ? "Update Property" : "Continue",
                     style: const TextStyle(color: Colors.white),
                   ),
                 ),

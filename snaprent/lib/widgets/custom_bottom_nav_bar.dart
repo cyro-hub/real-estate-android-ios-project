@@ -1,5 +1,6 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:snaprent/l10n/app_localizations.dart';
 
 class CustomBottomNavBar extends StatelessWidget {
   final int currentIndex;
@@ -13,6 +14,8 @@ class CustomBottomNavBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+
     return Align(
       alignment: Alignment.bottomCenter,
       child: SafeArea(
@@ -44,26 +47,26 @@ class CustomBottomNavBar extends StatelessWidget {
                 unselectedItemColor: Colors.grey,
                 showSelectedLabels: true,
                 showUnselectedLabels: true,
-                items: const [
+                items: [
                   BottomNavigationBarItem(
-                    icon: Icon(Icons.home),
-                    label: 'Home',
+                    icon: const Icon(Icons.home),
+                    label: '${l10n.home}',
                   ),
                   BottomNavigationBarItem(
-                    icon: Icon(Icons.explore),
-                    label: 'Explore',
+                    icon: const Icon(Icons.explore),
+                    label: '${l10n.explore}',
                   ),
                   BottomNavigationBarItem(
-                    icon: Icon(Icons.vpn_key),
-                    label: 'Access',
+                    icon: const Icon(Icons.dashboard),
+                    label: '${l10n.dashboard}',
                   ),
                   BottomNavigationBarItem(
-                    icon: Icon(Icons.person),
-                    label: 'Profile',
+                    icon: const Icon(Icons.vpn_key),
+                    label: '${l10n.access}',
                   ),
                   BottomNavigationBarItem(
-                    icon: Icon(Icons.favorite),
-                    label: 'Favorite',
+                    icon: const Icon(Icons.favorite),
+                    label: '${l10n.favourite}',
                   ),
                 ],
               ),

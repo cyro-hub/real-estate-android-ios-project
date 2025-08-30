@@ -26,7 +26,7 @@ export default class PropertyRouter {
       );
 
     this.propertyRouter
-      .route("/")
+      .route("/:_id")
       .put(
         this.rateLimiter.loginLimiter,
         this.authController.authenticate,

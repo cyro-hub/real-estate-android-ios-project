@@ -23,6 +23,9 @@ export default class Jwt {
   private accessSecret: string;
   private refreshSecret: string;
 
+  accessTokenExpiry = "1h"; 
+  refreshTokenExpiry = "24";
+
   constructor() {
     if (!process.env.JWT_ACCESS_SECRET || !process.env.JWT_REFRESH_SECRET) {
       throw new Error("JWT secrets must be defined in environment variables");

@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:snaprent/screens/tab_screens/dashboard_screen.dart';
 import 'package:snaprent/screens/tab_screens/favourite_screen.dart';
 
 import '../widgets/custom_bottom_nav_bar.dart';
 import 'tab_screens/home_screen.dart';
 import 'tab_screens/explore_screen.dart';
 import 'tab_screens/access_screen.dart';
-import 'tab_screens/profile_screen.dart';
-import '../widgets/screen_guard.dart';
+import '../services/screen_guard.dart';
 
 class MainNavigation extends ConsumerStatefulWidget {
   const MainNavigation({super.key});
@@ -29,12 +29,12 @@ class _MainNavigationState extends ConsumerState<MainNavigation> {
     final List<Map<String, dynamic>> tabConfig = [
       {'screen': const HomeScreen(), 'private': false},
       {'screen': const ExploreScreen(), 'private': false},
-      {'screen': MyAccessScreen(), 'private': true},
-      {'screen': const ProfileScreen(), 'private': true},
+      {'screen': const DashboardScreen(), 'private': true},
+      {'screen': const MyAccessScreen(), 'private': true},
       {'screen': const FavouriteScreen(), 'private': false},
     ];
 
-    final List<Widget> _screens = tabConfig.map((tab) {
+    final List<Widget> screens = tabConfig.map((tab) {
       if (tab['private'] == true) {
         return ScreenGuard(screen: tab['screen']);
       }
@@ -63,11 +63,11 @@ class _MainNavigationState extends ConsumerState<MainNavigation> {
           children: [
             IndexedStack(
               index: _currentIndex,
-              children: List.generate(_screens.length, (index) {
+              children: List.generate(screens.length, (index) {
                 return Navigator(
                   key: _navigatorKeys[index],
                   onGenerateRoute: (settings) {
-                    return MaterialPageRoute(builder: (_) => _screens[index]);
+                    return MaterialPageRoute(builder: (_) => screens[index]);
                   },
                 );
               }),

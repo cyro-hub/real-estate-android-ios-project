@@ -6,7 +6,7 @@ import 'package:snaprent/models/auth_state.dart';
 
 final authProvider =
     StateNotifierProvider<AuthNotifier, AsyncValue<AuthState?>>(
-      (ref) => throw UnimplementedError(), // Will be overridden in main
+      (ref) => throw UnimplementedError(),
     );
 
 class AuthNotifier extends StateNotifier<AsyncValue<AuthState?>> {
@@ -18,9 +18,13 @@ class AuthNotifier extends StateNotifier<AsyncValue<AuthState?>> {
   AuthNotifier(this._prefs, this._refreshTokenFn)
     : super(const AsyncValue.data(null));
 
+  /// Loads the authentication state from local storage.
   Future<void> loadFromStorage() async {
     final authJson = _prefs.getString(_authKey);
-    if (authJson == null) return;
+    if (authJson == null) {
+      state = const AsyncValue.data(null);
+      return;
+    }
 
     try {
       final authState = AuthState.fromJson(jsonDecode(authJson));
@@ -32,20 +36,29 @@ class AuthNotifier extends StateNotifier<AsyncValue<AuthState?>> {
     }
   }
 
+  /// Handles the login process and updates the state.
   Future<void> login(AuthState authState) async {
-    state = AsyncValue.data(authState);
-    await _prefs.setString(_authKey, jsonEncode(authState.toJson()));
+    state = const AsyncValue.loading();
+    try {
+      state = AsyncValue.data(authState);
+      await _prefs.setString(_authKey, jsonEncode(authState.toJson()));
+    } catch (e, stack) {
+      state = AsyncValue.error('Failed to login', stack);
+    }
   }
 
+  /// Handles the logout process.
   Future<void> logout() async {
     state = const AsyncValue.data(null);
     await _prefs.remove(_authKey);
   }
 
+  /// Resets the state.
   void resetState() {
     state = const AsyncValue.data(null);
   }
 
+  /// Refreshes the access token if it's close to expiring.
   Future<void> refreshIfNeeded() async {
     final authState = state.valueOrNull;
 
@@ -54,21 +67,39 @@ class AuthNotifier extends StateNotifier<AsyncValue<AuthState?>> {
     }
 
     try {
-      state = const AsyncValue.loading();
+      state = AsyncValue.data(authState); // Return to a data state
+      print('Refreshing token... $state');
       final newTokens = await _refreshTokenFn(authState.refreshToken);
-      final newAuthState = AuthState(
+      final newAuthState = authState.copyWith(
         accessToken: newTokens['accessToken'] as String,
         refreshToken: newTokens['refreshToken'] as String,
         expiresAt: DateTime.now().add(const Duration(minutes: 10)),
-        userId: authState.userId,
       );
       state = AsyncValue.data(newAuthState);
       await _prefs.setString(_authKey, jsonEncode(newAuthState.toJson()));
-      // debugPrint('Token refreshed successfully.');
     } catch (e, stack) {
-      // debugPrint('Token refresh failed: $e');
-      // debugPrintStack(stackTrace: stack);
-      state = const AsyncValue.data(null);
+      state = AsyncValue.error('Failed to refresh token', stack);
+      await logout();
+    }
+  }
+
+  /// Updates the user information in the current state and saves it.
+  Future<void> updateUser(Map<String, dynamic> userData) async {
+    final authState = state.valueOrNull;
+    if (authState == null) {
+      return;
+    }
+
+    try {
+      final updatedUser = User.fromJson(userData);
+      final updatedAuthState = authState.copyWith(user: updatedUser);
+      state = AsyncValue.data(updatedAuthState);
+      await _prefs.setString(_authKey, jsonEncode(updatedAuthState.toJson()));
+    } catch (e, stack) {
+      debugPrint('Error updating user state: $e');
+      debugPrintStack(stackTrace: stack);
+      // You might not want to show a snackbar here as the calling widget handles it,
+      // but it's good for debugging.
     }
   }
 }

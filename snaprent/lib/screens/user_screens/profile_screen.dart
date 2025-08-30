@@ -1,14 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:snaprent/core/constant.dart';
+import 'package:snaprent/providers/auth_provider.dart';
+import 'package:snaprent/screens/auth/login_screen.dart';
 import 'package:snaprent/screens/property_screens/add_property_screen.dart';
 import 'package:snaprent/screens/user_screens/users_properties.dart';
 import 'package:snaprent/screens/user_screens/privacy_policy_screen.dart';
 import 'package:snaprent/services/api_service.dart';
-import 'package:snaprent/widgets/screen_guard.dart';
+import 'package:snaprent/services/screen_guard.dart';
 import 'package:snaprent/widgets/snack_bar.dart';
 import 'package:snaprent/widgets/user_widgets/change_password_modal.dart';
-import 'package:shimmer/shimmer.dart'; // Add shimmer for loading state
+import 'package:shimmer/shimmer.dart';
 
 class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({super.key});
@@ -18,21 +20,20 @@ class ProfileScreen extends ConsumerStatefulWidget {
 }
 
 class _ProfileScreenState extends ConsumerState<ProfileScreen> {
-  Map<String, dynamic>? userInfo;
-  bool isLoading = true;
-  bool isUpdating = false;
-
   late final TextEditingController nameController;
   late final TextEditingController phoneController;
 
-  // No manual instantiation of ApiService here
+  bool isUpdating = false;
+
+  String? current;
+  String? newPass;
+  String? confirmPass;
 
   @override
   void initState() {
     super.initState();
     nameController = TextEditingController();
     phoneController = TextEditingController();
-    _fetchUserInfo();
   }
 
   @override
@@ -42,33 +43,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     super.dispose();
   }
 
-  Future<void> _fetchUserInfo() async {
-    if (!mounted) return;
-    setState(() => isLoading = true);
-
-    try {
-      // Use ref.read() to get the ApiService instance
-      final api = ref.read(apiServiceProvider);
-      final data = await api.get('users');
-
-      if (!mounted) return;
-      if (data != null && data['data'] != null) {
-        userInfo = Map<String, dynamic>.from(data['data']);
-        nameController.text = userInfo!['fullName'] ?? '';
-        phoneController.text = userInfo!['phone'] ?? '+237 --- --- ---';
-      }
-    } catch (e) {
-      debugPrint('Error fetching user info: $e');
-    } finally {
-      if (!mounted) return;
-      setState(() => isLoading = false);
-    }
-  }
-
   bool get hasChanges {
-    if (userInfo == null) return false;
-    return nameController.text != userInfo!['fullName'] ||
-        phoneController.text != userInfo!['phone'];
+    final user = ref.watch(authProvider).value?.user;
+    return nameController.text != user?.fullName ||
+        phoneController.text != user?.phone;
   }
 
   Future<void> _updateUserInfo() async {
@@ -87,17 +65,16 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
     try {
       final api = ref.read(apiServiceProvider);
-      final data = await api.put(
-        'users', // replace with your endpoint
-        {'fullName': nameController.text, 'phone': phone},
-      );
+      final data = await api.put('users', {
+        'fullName': nameController.text,
+        'phone': phone,
+      }, context);
 
       if (!mounted) return;
 
       if (data['success'] == true) {
-        userInfo = data['data'];
-        nameController.text = userInfo!['fullName'] ?? '';
-        phoneController.text = userInfo!['phone'] ?? '+237 --- --- ---';
+        // Corrected line: `data['data']` is already a Map
+        ref.read(authProvider.notifier).updateUser(data['data']);
         setState(() {});
         SnackbarHelper.show(context, data['message']);
       }
@@ -105,7 +82,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       if (!mounted) return;
       SnackbarHelper.show(context, 'Update failed', success: false);
     } finally {
-      if (!mounted) return;
       setState(() => isUpdating = false);
     }
   }
@@ -113,7 +89,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   void navigateToAddProperty() {
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) => ScreenGuard(screen: AddPropertyScreen()),
+        builder: (_) => const ScreenGuard(screen: AddPropertyScreen()),
       ),
     );
   }
@@ -193,25 +169,163 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     );
   }
 
+  void _showChangePasswordDrawer() async {
+    final results = await showGeneralDialog(
+      context: context,
+      barrierLabel: "Change Password Drawer",
+      barrierDismissible: true,
+      barrierColor: Colors.black.withOpacity(0.4),
+      transitionDuration: const Duration(milliseconds: 300),
+      pageBuilder: (_, __, ___) {
+        final double screenHeight = MediaQuery.of(context).size.height;
+        final double screenWidth = MediaQuery.of(context).size.width;
+
+        return Align(
+          alignment: Alignment.bottomCenter,
+          child: Material(
+            type: MaterialType.transparency,
+            child: Container(
+              width: screenWidth,
+              height: screenHeight,
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.only(
+                  topLeft: Radius.circular(0),
+                  topRight: Radius.circular(0),
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black26,
+                    blurRadius: 10,
+                    spreadRadius: 2,
+                  ),
+                ],
+              ),
+              child: const ChangePasswordDrawer(),
+            ),
+          ),
+        );
+      },
+      transitionBuilder: (_, animation, __, child) {
+        return SlideTransition(
+          position: Tween(
+            begin: const Offset(0, 1),
+            end: Offset.zero,
+          ).animate(animation),
+          child: child,
+        );
+      },
+    );
+
+    if (results != null) {
+      final changePasswordDetails = results as Map<String, dynamic>;
+
+      setState(() {
+        current = changePasswordDetails['current'];
+        newPass = changePasswordDetails['newPass'];
+        confirmPass = changePasswordDetails['confirmPass'];
+      });
+      _changePassword();
+    }
+  }
+
+  Future<void> _changePassword() async {
+    if (newPass != confirmPass) {
+      if (!context.mounted) return;
+      SnackbarHelper.show(context, 'Passwords do not match', success: false);
+      return;
+    }
+
+    if (newPass == current) {
+      if (!context.mounted) return;
+      SnackbarHelper.show(
+        context,
+        'Current password cannot be the same as new password',
+        success: false,
+      );
+      return;
+    }
+
+    setState(() => isUpdating = true);
+
+    try {
+      final response = await ref.read(apiServiceProvider).put(
+        'auth/change-password',
+        {'currentPassword': current, 'newPassword': newPass},
+        context,
+      );
+
+      if (response['success'] == true) {
+        if (!mounted) return;
+        SnackbarHelper.show(context, 'Password changed successfully');
+        ref.read(authProvider.notifier).logout();
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(builder: (_) => const LoginScreen()),
+          (route) => false,
+        );
+      } else {
+        if (!mounted) return;
+        SnackbarHelper.show(
+          context,
+          response?['message'] ?? 'Failed to change password',
+          success: false,
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      SnackbarHelper.show(context, 'Error changing password', success: false);
+    } finally {
+      if (!mounted) return;
+      setState(() => isUpdating = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final user = ref.watch(authProvider).value?.user;
+
+    if (user != null) {
+      if (nameController.text.isEmpty) {
+        nameController.text = user.fullName;
+      }
+      if (phoneController.text.isEmpty) {
+        phoneController.text = user.phone;
+      }
+    }
+
+    final isDataAvailable = user != null;
+
     return Scaffold(
       body: Stack(
         children: [
-          // Gradient background
-          Container(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [Colors.indigo.shade700, Colors.indigo.shade400],
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
+          SizedBox(
+            height: MediaQuery.of(context).size.height * 0.6,
+            width: MediaQuery.of(context).size.width,
+            child: Container(
+              decoration: BoxDecoration(
+                image: DecorationImage(
+                  image: user?.image != null
+                      ? NetworkImage(user!.image as String)
+                      : const AssetImage('assets/test/profile_pic.jpg')
+                            as ImageProvider,
+                  fit: BoxFit.cover,
+                ),
+              ),
+              child: Container(
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      Color.fromARGB(75, 0, 0, 0),
+                      Color.fromARGB(195, 0, 0, 0),
+                    ],
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                  ),
+                ),
               ),
             ),
           ),
-
-          // Settings icon
-
-          // Draggable Sheet
           DraggableScrollableSheet(
             initialChildSize: 0.65,
             minChildSize: 0.5,
@@ -232,24 +346,32 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 ),
                 child: SingleChildScrollView(
                   controller: scrollController,
-                  child: isLoading
+                  child: !isDataAvailable
                       ? _buildShimmerProfile()
                       : Column(
                           crossAxisAlignment: CrossAxisAlignment.center,
                           children: [
-                            // Profile Picture
                             CircleAvatar(
                               radius: 50,
-                              backgroundImage: userInfo?['image'] != null
-                                  ? NetworkImage(userInfo!['image'] as String)
+                              backgroundImage: user.image != null
+                                  ? NetworkImage(user.image as String)
                                   : const AssetImage(
                                           'assets/test/profile_pic.jpg',
                                         )
                                         as ImageProvider,
                             ),
                             const SizedBox(height: 16),
-
-                            // Editable fields
+                            const Row(
+                              children: [
+                                Text(
+                                  "General",
+                                  style: TextStyle(
+                                    color: Colors.indigo,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
+                            ),
                             _buildEditableCard(
                               label: "Full Name",
                               controller: nameController,
@@ -282,7 +404,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                                       ),
                                       const SizedBox(height: 6),
                                       Text(
-                                        userInfo?['email'] ?? '',
+                                        user.email,
                                         style: const TextStyle(fontSize: 16),
                                       ),
                                     ],
@@ -295,7 +417,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                               controller: phoneController,
                             ),
                             const SizedBox(height: 20),
-
                             if (hasChanges)
                               ElevatedButton(
                                 onPressed: isUpdating ? null : _updateUserInfo,
@@ -321,40 +442,46 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                                         ),
                                       ),
                               ),
-                            const SizedBox(height: 30),
-
-                            // My Properties
+                            const Row(
+                              children: [
+                                Text(
+                                  "Properties",
+                                  style: TextStyle(
+                                    color: Colors.indigo,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
+                            ),
                             _buildProfileItem(
                               label: "My Properties",
                               trailing: const Icon(Icons.home),
                               onTap: () {
                                 Navigator.of(context).push(
                                   MaterialPageRoute(
-                                    builder: (_) => ScreenGuard(
+                                    builder: (_) => const ScreenGuard(
                                       screen: UsersPropertiesScreen(),
                                     ),
                                   ),
                                 );
                               },
                             ),
-
-                            // Privacy Section
                             const SizedBox(height: 20),
                             const Align(
                               alignment: Alignment.centerLeft,
                               child: Text(
                                 "Privacy & Security",
                                 style: TextStyle(
-                                  color: Colors.grey,
-                                  fontWeight: FontWeight.w600,
+                                  color: Colors.indigo,
+                                  fontWeight: FontWeight.bold,
                                 ),
                               ),
                             ),
-                            if (userInfo?['provider'] != "google")
+                            if (user.provider != "google")
                               _buildProfileItem(
                                 label: "Change Password",
                                 onTap: () {
-                                  showChangePasswordDialog(context, ref);
+                                  _showChangePasswordDrawer();
                                 },
                               ),
                             _buildProfileItem(
@@ -362,7 +489,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                               onTap: () {
                                 Navigator.of(context).push(
                                   MaterialPageRoute(
-                                    builder: (_) => ScreenGuard(
+                                    builder: (_) => const ScreenGuard(
                                       screen: PrivacyPolicyScreen(),
                                     ),
                                   ),

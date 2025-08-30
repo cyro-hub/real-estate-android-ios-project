@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:snaprent/services/api_service.dart';
+import 'package:snaprent/widgets/payment_widget.dart';
 import 'package:snaprent/widgets/safe_scaffold.dart';
 import 'package:snaprent/widgets/snack_bar.dart';
 
@@ -18,12 +19,76 @@ class _BuyTokenScreenState extends ConsumerState<BuyTokenScreen> {
   double basePricePerToken = 250; // Price per 24h token
   bool isBuying = false;
 
+  String? phoneNumber;
+  String? network;
+  String? payerMessage;
+
   double get totalPrice {
     return (basePricePerToken * quantity) * (hours / 24);
   }
 
   DateTime get expiryTime {
     return DateTime.now().add(Duration(hours: hours));
+  }
+
+  void _showChangePasswordDrawer() async {
+    final results = await showGeneralDialog(
+      context: context,
+      barrierLabel: "Change Password Drawer",
+      barrierDismissible: true,
+      barrierColor: Colors.black.withOpacity(0.4),
+      transitionDuration: const Duration(milliseconds: 300),
+      pageBuilder: (_, __, ___) {
+        final double screenHeight = MediaQuery.of(context).size.height;
+        final double screenWidth = MediaQuery.of(context).size.width;
+
+        return Align(
+          alignment: Alignment.bottomCenter,
+          child: Material(
+            type: MaterialType.transparency,
+            child: Container(
+              width: screenWidth,
+              height: screenHeight,
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.only(
+                  topLeft: Radius.circular(0),
+                  topRight: Radius.circular(0),
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black26,
+                    blurRadius: 10,
+                    spreadRadius: 2,
+                  ),
+                ],
+              ),
+              child: const PaymentDrawer(),
+            ),
+          ),
+        );
+      },
+      transitionBuilder: (_, animation, __, child) {
+        return SlideTransition(
+          position: Tween(
+            begin: const Offset(0, 1),
+            end: Offset.zero,
+          ).animate(animation),
+          child: child,
+        );
+      },
+    );
+
+    if (results != null) {
+      final changePasswordDetails = results as Map<String, dynamic>;
+
+      setState(() {
+        phoneNumber = changePasswordDetails['phoneNumber'];
+        network = changePasswordDetails['network'];
+        payerMessage = changePasswordDetails['message'];
+      });
+      _buyToken();
+    }
   }
 
   Future<void> _buyToken() async {
@@ -34,37 +99,42 @@ class _BuyTokenScreenState extends ConsumerState<BuyTokenScreen> {
     });
 
     try {
-      final tokenDetails = {"hours": hours, "quantity": quantity};
+      final tokenDetails = {
+        "hours": hours,
+        "quantity": quantity,
+        "amount": totalPrice.toStringAsFixed(0),
+        "phone": phoneNumber,
+        "payerMessage": payerMessage,
+        "network": network,
+        "expiryTime": expiryTime.toIso8601String(),
+      };
 
       // Use ref.read() to get the ApiService instance
       final api = ref.read(apiServiceProvider);
-      final response = await api.post('token', tokenDetails);
+      final response = await api.post('token', tokenDetails, context);
 
-      if (mounted) {
-        if (response != null && response['success'] == true) {
-          SnackbarHelper.show(
-            context,
-            response['message'] ?? "Token purchased successfully.",
-          );
-        } else {
-          SnackbarHelper.show(
-            context,
-            response?['message'] ??
-                "Failed to purchase token. Please try again.",
-            success: false,
-          );
-        }
+      if (!mounted) return;
+
+      if (response != null && response['success'] == true) {
+        SnackbarHelper.show(
+          context,
+          response['message'] ?? "Token purchased successfully.",
+        );
+      } else {
+        SnackbarHelper.show(
+          context,
+          response?['message'] ?? "Failed to purchase token. Please try again.",
+          success: false,
+        );
       }
     } catch (e) {
-      if (mounted) {
-        SnackbarHelper.show(context, "Error: $e", success: false);
-      }
+      if (!mounted) return;
+      SnackbarHelper.show(context, "Error: $e", success: false);
     } finally {
-      if (mounted) {
-        setState(() {
-          isBuying = false;
-        });
-      }
+      if (!mounted) return;
+      setState(() {
+        isBuying = false;
+      });
     }
   }
 
@@ -228,7 +298,7 @@ class _BuyTokenScreenState extends ConsumerState<BuyTokenScreen> {
             const SizedBox(height: 40),
             // Buy Button
             ElevatedButton.icon(
-              onPressed: isBuying ? null : _buyToken,
+              onPressed: isBuying ? null : _showChangePasswordDrawer,
               icon: isBuying
                   ? const SizedBox(
                       width: 20,

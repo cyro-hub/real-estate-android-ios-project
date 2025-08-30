@@ -6,9 +6,10 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:location/location.dart';
 import 'package:snaprent/core/constant.dart';
 import 'package:snaprent/core/mock_data.dart';
+import 'package:snaprent/screens/property_screens/property_screen.dart';
 import 'package:snaprent/services/api_service.dart';
+import 'package:snaprent/widgets/property_widgets/marker_property_widget.dart';
 import 'package:snaprent/widgets/snack_bar.dart';
-import '../property_screens/property_screen.dart';
 
 class ExploreScreen extends ConsumerStatefulWidget {
   const ExploreScreen({super.key});
@@ -22,12 +23,8 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
   late GoogleMapController _mapController;
   String? selectedPropertyType;
 
-  // No longer needed
-  // late ApiService api;
-
-  // Default location (Cameroon)
   LatLng _currentLocation = const LatLng(4.0511, 9.7679);
-  final Set<Marker> _propertyMarkers = {};
+  Set<Marker> _propertyMarkers = {};
   bool _isSearching = false;
 
   Timer? _debounce;
@@ -36,11 +33,6 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
   @override
   void initState() {
     super.initState();
-
-    // Removed manual instantiation
-    // api = ApiService(ref);
-
-    // Try to get user location
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _searchProperties();
       _loadUserLocationSilently();
@@ -78,12 +70,24 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
     } catch (_) {}
   }
 
-  /// Property marker
-  Marker _propertyMarker(String id, LatLng position) {
+  Future<Marker> _propertyMarker(
+    String id,
+    String type,
+    LatLng position,
+  ) async {
+    // Find the matching icon from your list
+    final Map<String, dynamic> propertyType = propertyTypes.firstWhere(
+      (item) => item["name"] == type,
+      orElse: () => {"icon": Icons.help}, // A default icon if no match is found
+    );
+
+    final IconData iconData = propertyType["icon"];
+    final BitmapDescriptor customIcon = await getCustomMarkerIcon(iconData);
+
     return Marker(
       markerId: MarkerId(id),
       position: position,
-      icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
+      icon: customIcon,
       onTap: () {
         Navigator.of(context).push(
           MaterialPageRoute(builder: (_) => PropertyScreen(propertyId: id)),
@@ -92,8 +96,7 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
     );
   }
 
-  /// Fetch properties
-  void _searchProperties([String? query, LatLng? center]) async {
+  Future<void> _searchProperties([String? query, LatLng? center]) async {
     try {
       if (!mounted) return;
       setState(() => _isSearching = true);
@@ -117,16 +120,24 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
       if (response != null && response['data'] != null) {
         final List properties = response['data'];
 
+        Set<Marker> newMarkers = {};
+
+        for (var property in properties) {
+          final coords = property['location']['coordinates'];
+          final lat = coords[1];
+          final lon = coords[0];
+
+          Marker marker = await _propertyMarker(
+            property['_id'],
+            property['type'],
+            LatLng(lat, lon),
+          );
+          newMarkers.add(marker);
+        }
+
         setState(() {
           _propertyMarkers.clear();
-          for (var property in properties) {
-            final coords = property['location']['coordinates'];
-            final lat = coords[1];
-            final lon = coords[0];
-            _propertyMarkers.add(
-              _propertyMarker(property['_id'], LatLng(lat, lon)),
-            );
-          }
+          _propertyMarkers = newMarkers;
           _isSearching = false;
         });
       } else {

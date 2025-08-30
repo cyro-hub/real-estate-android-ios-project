@@ -12,12 +12,7 @@ import 'screens/main_navigation.dart';
 import 'screens/onboarding_screen.dart';
 import 'core/themes.dart';
 
-final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
-
 final onboardingSeenProvider = Provider<bool>((ref) => false);
-final languageProvider = StateNotifierProvider<LanguageNotifier, Locale>(
-  (ref) => throw UnimplementedError(),
-);
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -39,17 +34,9 @@ Future<void> main() async {
     ProviderScope(
       overrides: [
         onboardingSeenProvider.overrideWithValue(seenOnboarding),
-        languageProvider.overrideWith(
-          (ref) => LanguageNotifier(
-            prefs,
-            WidgetsBinding.instance.platformDispatcher.locale,
-          ),
-        ),
+        languageProvider.overrideWith((ref) => LanguageNotifier(prefs)),
         authProvider.overrideWith((ref) {
-          final notifier = AuthNotifier(
-            prefs,
-            ApiService.refreshTokenFn, // Pass the static function here
-          );
+          final notifier = AuthNotifier(prefs, ApiService.refreshTokenFn);
           notifier.loadFromStorage();
           return notifier;
         }),
@@ -83,7 +70,7 @@ class _MyAppState extends ConsumerState<MyApp> {
       try {
         await ref.read(authProvider.notifier).refreshIfNeeded();
       } catch (e) {
-        debugPrint('Error refreshing token: $e');
+        ref.read(authProvider.notifier).logout();
       } finally {
         _isRefreshing = false;
       }

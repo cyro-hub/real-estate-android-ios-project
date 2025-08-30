@@ -22,7 +22,6 @@ class _MyAccessScreenState extends ConsumerState<MyAccessScreen>
   @override
   void initState() {
     super.initState();
-    // Removed the manual ApiService initialization
     _fetchProperties();
   }
 
@@ -38,17 +37,15 @@ class _MyAccessScreenState extends ConsumerState<MyAccessScreen>
     super.dispose();
   }
 
-  // RouteAware callbacks
   @override
-  void didPush() => _fetchProperties(); // First time screen is pushed
+  void didPush() => _fetchProperties();
   @override
-  void didPopNext() => _fetchProperties(); // When returning from another screen
+  void didPopNext() => _fetchProperties();
 
   Future<void> _fetchProperties() async {
     if (!mounted) return;
     setState(() => isLoading = true);
     try {
-      // Correct Riverpod usage: read the provider inside the method
       final response = await ref
           .read(apiServiceProvider)
           .get('properties/token', {});
@@ -98,28 +95,34 @@ class _MyAccessScreenState extends ConsumerState<MyAccessScreen>
     return SafeScaffold(
       child: isLoading
           ? const Center(child: CircularProgressIndicator())
-          : properties.isEmpty
-          ? const Center(child: Text('No properties found'))
           : RefreshIndicator(
               onRefresh: _fetchProperties,
               child: SingleChildScrollView(
+                // This ensures the RefreshIndicator is always active
                 physics: const AlwaysScrollableScrollPhysics(),
-                padding: const EdgeInsets.all(16),
-                child: _buildStepper(),
+                child: properties.isEmpty
+                    ? SizedBox(
+                        // Gives the SingleChildScrollView enough height to enable the pull gesture
+                        height:
+                            MediaQuery.of(context).size.height -
+                            (kToolbarHeight + kBottomNavigationBarHeight),
+                        child: const Center(child: Text('No properties found')),
+                      )
+                    : Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: _buildStepper(),
+                      ),
               ),
             ),
     );
   }
 
   Stepper _buildStepper() {
-    // Sort by expiry date
     final sorted = [...properties]
       ..sort(
         (a, b) =>
             (a['expiresAt'] as DateTime).compareTo(b['expiresAt'] as DateTime),
       );
-
-    // Group by expiry string
     final Map<String, List<Map<String, dynamic>>> grouped = {};
     for (var prop in sorted) {
       final key = prop['isExpired'] == true
@@ -127,7 +130,6 @@ class _MyAccessScreenState extends ConsumerState<MyAccessScreen>
           : timeago.format(prop['expiresAt'], allowFromNow: true);
       grouped.putIfAbsent(key, () => []).add(prop);
     }
-
     return Stepper(
       physics: const ClampingScrollPhysics(),
       currentStep: _index,
@@ -136,7 +138,6 @@ class _MyAccessScreenState extends ConsumerState<MyAccessScreen>
       steps: grouped.entries.map((entry) {
         final expiryText = entry.key;
         final props = entry.value;
-
         return Step(
           title: Text("Expires $expiryText"),
           content: Column(

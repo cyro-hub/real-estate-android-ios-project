@@ -3,9 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:snaprent/core/constant.dart';
 import 'package:snaprent/models/auth_state.dart';
-import 'package:snaprent/models/user_state.dart';
 import 'package:snaprent/providers/auth_provider.dart';
-import 'package:snaprent/providers/user_provider.dart';
 import 'package:snaprent/services/api_service.dart';
 import 'package:snaprent/widgets/btn_widgets/primary_btn.dart';
 import 'package:snaprent/widgets/btn_widgets/tertiary_btn.dart';
@@ -31,14 +29,6 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   bool _obscurePassword = true;
   bool _isLoading = false;
 
-  // No longer needed to manually instantiate ApiService
-  // late ApiService api;
-  // @override
-  // void initState() {
-  //   super.initState();
-  //   api = ApiService(ref);
-  // }
-
   Future<void> _register() async {
     if (!_formKey.currentState!.validate()) return;
     if (!mounted) return;
@@ -57,7 +47,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
         'email': email,
         'password': password,
         'fullName': fullName,
-      });
+      }, context);
 
       final message = data['message'] ?? 'Registered successfully';
       if (mounted) SnackbarHelper.show(context, message);
@@ -76,6 +66,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
         email: userJson['email'],
         phone: userJson['phone'],
         image: userJson['image'],
+        provider: userJson['provider'],
       );
 
       final authState = AuthState(
@@ -83,10 +74,10 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
         refreshToken: tokens['refreshToken'],
         expiresAt: expiresAt,
         userId: userJson["_id"],
+        user: userModel,
       );
 
       await ref.read(authProvider.notifier).login(authState);
-      ref.read(userProvider.notifier).setUser(userModel);
 
       if (!mounted) return;
       if (widget.redirectTo != null) {
@@ -99,11 +90,11 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
         );
       }
     } catch (e) {
-      if (mounted) {
-        SnackbarHelper.show(context, "Registration failed: $e", success: false);
-      }
+      if (!mounted) return;
+      SnackbarHelper.show(context, "Registration failed: $e", success: false);
     } finally {
-      if (mounted) setState(() => _isLoading = false);
+      if (!mounted) return;
+      setState(() => _isLoading = false);
     }
   }
 
@@ -137,7 +128,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
       final data = await api.post('auth/google', {
         'email': googleUser.email,
         'idToken': idToken,
-      });
+      }, context);
 
       final message = data['message'] ?? 'Login successful';
       if (mounted) SnackbarHelper.show(context, message, success: true);
@@ -162,6 +153,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
         email: userJson['email'],
         phone: userJson['phone'],
         image: userJson['image'],
+        provider: userJson['provider'],
       );
 
       final authState = AuthState(
@@ -169,10 +161,10 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
         refreshToken: tokens['refreshToken'],
         expiresAt: expiresAt,
         userId: userJson["_id"],
+        user: userModel,
       );
 
       await ref.read(authProvider.notifier).login(authState);
-      ref.read(userProvider.notifier).setUser(userModel);
 
       if (!mounted) return;
       if (widget.redirectTo != null) {
@@ -185,15 +177,11 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
         );
       }
     } catch (e) {
-      if (mounted) {
-        SnackbarHelper.show(
-          context,
-          "Google Sign-In failed: $e",
-          success: false,
-        );
-      }
+      if (!mounted) return;
+      SnackbarHelper.show(context, "Google Sign-In failed: $e", success: false);
     } finally {
-      if (mounted) setState(() => _isLoading = false);
+      if (!mounted) return;
+      setState(() => _isLoading = false);
     }
   }
 

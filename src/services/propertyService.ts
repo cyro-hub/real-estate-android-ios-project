@@ -148,8 +148,8 @@ export class PropertyServices extends Services<PropertyDocument> {
           title: 1,
           description: 1,
           rentAmount: 1,
-          "location.landmark": 1,
-          // Return only the first image
+          location: 1,
+          contact: 1,
           images: { $slice: 1 },
           status: 1,
           type: 1,
@@ -356,6 +356,7 @@ export class PropertyServices extends Services<PropertyDocument> {
       $project: {
         _id: 1,
         title: 1,
+        type: 1,
         description: 1,
         location: {
           coordinates: 1,

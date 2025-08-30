@@ -4,7 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:snaprent/core/constant.dart';
 import 'package:snaprent/core/mock_data.dart';
 import 'package:snaprent/services/api_service.dart';
-import 'package:snaprent/widgets/filter_drawer.dart';
+import 'package:snaprent/widgets/property_widgets/filter_drawer.dart';
 import 'package:snaprent/widgets/setting_drawer_widget.dart';
 import 'package:snaprent/widgets/snack_bar.dart';
 import '../../widgets/safe_scaffold.dart';
@@ -175,7 +175,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       if (!mounted) return;
       SnackbarHelper.show(
         context,
-        'Error fetching properties: $e',
+        'Error fetching properties',
         success: false,
       );
     } finally {
@@ -317,7 +317,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             ],
           ),
 
-          const SizedBox(height: 8),
+          const SizedBox(height: 2),
 
           // Search box
           Container(

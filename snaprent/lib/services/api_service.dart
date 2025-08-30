@@ -1,27 +1,23 @@
-// File: lib/services/api_service.dart
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
 import 'package:snaprent/providers/auth_provider.dart';
 import 'package:snaprent/screens/token_and_payment/buy_token.dart';
-import 'package:snaprent/widgets/screen_guard.dart';
+import 'package:snaprent/services/screen_guard.dart';
 import '../screens/auth/login_screen.dart';
+import 'package:connectivity_plus/connectivity_plus.dart';
 
-// Your base URL should be a constant.
 const String _baseUrl = "http://192.168.8.103:3000/api/v1";
 
-// Create a GlobalKey to access the navigator state from a non-widget class.
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
-// The provider for ApiService. This allows us to access the authState.
 final apiServiceProvider = Provider<ApiService>((ref) {
-  // Pass the ProviderRef to the ApiService
   return ApiService(ref);
 });
 
 class ApiService {
-  final ProviderRef _ref;
+  final Ref _ref;
 
   ApiService(this._ref);
 
@@ -34,45 +30,28 @@ class ApiService {
     };
   }
 
-  /// Handles 401 Unauthorized status.
-  void _handleUnauthorized() {
-    _ref.read(authProvider.notifier).logout();
-
-    final context = navigatorKey.currentState?.context;
-    if (context != null) {
-      Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(builder: (_) => const LoginScreen()),
-        (route) => false,
-      );
-    }
-  }
-
-  /// Handles 403 Forbidden status.
-  void _handleForbidden() {
-    final context = navigatorKey.currentState?.context;
-    if (context != null) {
-      Navigator.of(context).push(
-        MaterialPageRoute(
-          builder: (_) => const ScreenGuard(screen: BuyTokenScreen()),
-        ),
-      );
-    }
-  }
-
   Future<dynamic> get(
     String endpoint, [
     Map<String, String>? queryParams,
+    BuildContext? context,
   ]) async {
+    await checkConnectivityAndMakeApiCall();
     final headers = await _getHeaders();
     final uri = Uri.parse(
       '$_baseUrl/$endpoint',
     ).replace(queryParameters: queryParams);
 
     final response = await http.get(uri, headers: headers);
-    return _handleResponse(response);
+
+    return _handleResponse(response, context: context);
   }
 
-  Future<dynamic> post(String endpoint, Map<String, dynamic> body) async {
+  Future<dynamic> post(
+    String endpoint,
+    Map<String, dynamic> body,
+    BuildContext? context,
+  ) async {
+    await checkConnectivityAndMakeApiCall();
     final headers = await _getHeaders();
     final uri = Uri.parse('$_baseUrl/$endpoint');
 
@@ -81,10 +60,15 @@ class ApiService {
       headers: headers,
       body: jsonEncode(body),
     );
-    return _handleResponse(response);
+    return _handleResponse(response, context: context);
   }
 
-  Future<dynamic> put(String endpoint, Map<String, dynamic> body) async {
+  Future<dynamic> put(
+    String endpoint,
+    Map<String, dynamic> body,
+    BuildContext? context,
+  ) async {
+    await checkConnectivityAndMakeApiCall();
     final headers = await _getHeaders();
     final uri = Uri.parse('$_baseUrl/$endpoint');
 
@@ -93,23 +77,40 @@ class ApiService {
       headers: headers,
       body: jsonEncode(body),
     );
-    return _handleResponse(response);
+    print('PUT $endpoint: ${response.statusCode} ${response.body}');
+    return _handleResponse(response, context: context);
   }
 
-  Future<dynamic> delete(String endpoint) async {
+  Future<dynamic> delete(String endpoint, BuildContext? context) async {
+    await checkConnectivityAndMakeApiCall();
     final headers = await _getHeaders();
     final uri = Uri.parse('$_baseUrl/$endpoint');
     final response = await http.delete(uri, headers: headers);
-    return _handleResponse(response);
+    return _handleResponse(response, context: context);
   }
 
-  dynamic _handleResponse(http.Response response) {
+  dynamic _handleResponse(http.Response response, {BuildContext? context}) {
     if (response.statusCode == 401) {
-      _handleUnauthorized();
-      throw Exception('Unauthorized');
+      _ref.read(authProvider.notifier).logout();
+
+      if (context != null) {
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (_) => const LoginScreen()),
+          (Route<dynamic> route) =>
+              false, // This condition removes all previous routes
+        );
+      }
+      return Future.error(Exception('Unauthorized'));
     } else if (response.statusCode == 403) {
-      _handleForbidden();
-      throw Exception('Forbidden');
+      if (context != null) {
+        // Use push to navigate to BuyTokenScreen, as it's a temporary screen
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => const ScreenGuard(screen: BuyTokenScreen()),
+          ),
+        );
+      }
+      return Future.error(Exception('Forbidden'));
     } else if (response.statusCode >= 200 && response.statusCode < 300) {
       try {
         return jsonDecode(response.body);
@@ -121,7 +122,6 @@ class ApiService {
       try {
         decoded = jsonDecode(response.body);
       } catch (_) {
-        // If decoding fails, provide a generic error message
         throw Exception('Request failed with status ${response.statusCode}');
       }
       final errorMessage = decoded is Map && decoded.containsKey('message')
@@ -131,11 +131,21 @@ class ApiService {
     }
   }
 
-  /// This function can be used outside the ApiService for token refresh.
+  static Future<void> checkConnectivityAndMakeApiCall() async {
+    var connectivityResult = await (Connectivity().checkConnectivity());
+
+    if (!connectivityResult.contains(ConnectivityResult.mobile) &&
+        !connectivityResult.contains(ConnectivityResult.wifi) &&
+        !connectivityResult.contains(ConnectivityResult.ethernet)) {
+      return Future.error(Exception('No internet connectivity'));
+    }
+  }
+
   static Future<Map<String, dynamic>> refreshTokenFn(
     String refreshToken,
   ) async {
     try {
+      await checkConnectivityAndMakeApiCall();
       final url = Uri.parse('$_baseUrl/auth/refresh');
       final response = await http.post(
         url,
@@ -154,7 +164,7 @@ class ApiService {
       return Map<String, dynamic>.from(res['data']['tokens']);
     } catch (e) {
       debugPrint('Error refreshing token: $e');
-      rethrow; // Re-throw the error so the caller can handle it
+      rethrow;
     }
   }
 }

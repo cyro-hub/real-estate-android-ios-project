@@ -1,0 +1,10 @@
+import 'package:snaprent/l10n/app_localizations.dart';
+
+
+final l10n = AppLocalizations.of(context)!;
+
+
+${l10n.settings}
+
+
+flutter gen-l10n

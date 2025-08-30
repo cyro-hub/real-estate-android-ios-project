@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:snaprent/core/constant.dart';
 import 'package:snaprent/screens/property_screens/property_screen.dart';
-import 'package:snaprent/screens/token_and_payment/token_screen.dart';
 
 class AccessPropertyCard extends StatelessWidget {
   final String propertyId;
@@ -91,41 +90,41 @@ class AccessPropertyCard extends StatelessWidget {
             ),
 
           // Overlay if expired
-          if (isExpired)
-            Container(
-              height: 180,
-              color: Colors.black.withOpacity(0.6),
-              alignment: Alignment.center,
-              child: ElevatedButton(
-                onPressed: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) =>
-                          TokenScreen(tokenPackageId: tokenPackageId),
-                    ),
-                  );
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.indigo,
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 12,
-                  ),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: const [
-                    Icon(Icons.recycling),
-                    SizedBox(width: 8),
-                    Text("Renew Token"),
-                  ],
-                ),
-              ),
-            ),
+          // if (isExpired)
+          //   Container(
+          //     height: 180,
+          //     color: Colors.black.withOpacity(0.6),
+          //     alignment: Alignment.center,
+          //     child: ElevatedButton(
+          //       onPressed: () {
+          //         Navigator.of(context).push(
+          //           MaterialPageRoute(
+          //             builder: (_) =>
+          //                 TokenScreen(tokenPackageId: tokenPackageId),
+          //           ),
+          //         );
+          //       },
+          //       style: ElevatedButton.styleFrom(
+          //         backgroundColor: Colors.indigo,
+          //         foregroundColor: Colors.white,
+          //         shape: RoundedRectangleBorder(
+          //           borderRadius: BorderRadius.circular(12),
+          //         ),
+          //         padding: const EdgeInsets.symmetric(
+          //           horizontal: 16,
+          //           vertical: 12,
+          //         ),
+          //       ),
+          //       child: const Row(
+          //         mainAxisSize: MainAxisSize.min,
+          //         children: const [
+          //           Icon(Icons.recycling),
+          //           SizedBox(width: 8),
+          //           Text("Renew Token"),
+          //         ],
+          //       ),
+          //     ),
+          //   ),
 
           // View button if not expired
           if (!isExpired)
@@ -149,9 +148,9 @@ class AccessPropertyCard extends StatelessWidget {
                     vertical: 12,
                   ),
                 ),
-                child: Row(
+                child: const Row(
                   mainAxisSize: MainAxisSize.min,
-                  children: const [
+                  children: [
                     Icon(Icons.visibility),
                     SizedBox(width: 8),
                     Text("View"),

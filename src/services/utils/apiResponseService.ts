@@ -36,6 +36,7 @@ export default class ApiResponse {
       fullName: string;
       image?: string;
       phone?: string;
+      provider?: string;
     }
   ) {
     this.body = { success: true, message, data: { tokens, user } };

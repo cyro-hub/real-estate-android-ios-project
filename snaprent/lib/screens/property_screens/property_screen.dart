@@ -69,10 +69,10 @@ class _PropertyScreenState extends ConsumerState<PropertyScreen> {
     try {
       if (!mounted) return;
 
-      await Future.delayed(const Duration(milliseconds: 300));
       final data = await ref.read(apiServiceProvider).get(
         '/properties/get-access',
         {"_id": propertyId!},
+        context,
       );
 
       final newDetails = data["data"] as Map<String, dynamic>?;
@@ -239,12 +239,10 @@ class _PropertyScreenState extends ConsumerState<PropertyScreen> {
             maxChildSize: 0.9,
             builder: (context, scrollController) {
               return Container(
-                decoration: BoxDecoration(
+                decoration: const BoxDecoration(
                   color: Colors.white,
-                  borderRadius: const BorderRadius.vertical(
-                    top: Radius.circular(24),
-                  ),
-                  boxShadow: const [
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+                  boxShadow: [
                     BoxShadow(
                       color: Colors.black26,
                       blurRadius: 10,
@@ -346,8 +344,8 @@ class _PropertyScreenState extends ConsumerState<PropertyScreen> {
                               ),
                             ],
                           ),
-                          Row(
-                            children: const [
+                          const Row(
+                            children: [
                               Icon(Icons.star, color: Colors.amber, size: 20),
                               Icon(Icons.star, color: Colors.amber, size: 20),
                               Icon(Icons.star, color: Colors.amber, size: 20),
@@ -454,11 +452,11 @@ class _PropertyScreenState extends ConsumerState<PropertyScreen> {
                         runSpacing: 12,
                         children: [
                           if (houseRules['smokingAllowed'] == true)
-                            HouseRuleItem(label: "Smoking Allowed"),
+                            const HouseRuleItem(label: "Smoking Allowed"),
                           if (houseRules['petsAllowed'] == true)
-                            HouseRuleItem(label: "Pet Allowed"),
+                            const HouseRuleItem(label: "Pet Allowed"),
                           if (houseRules['visitorsAllowed'] == true)
-                            HouseRuleItem(label: "Visitors Allowed"),
+                            const HouseRuleItem(label: "Visitors Allowed"),
                           if (houseRules['quietHours'] != null)
                             HouseRuleItem(
                               label:

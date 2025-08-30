@@ -6,6 +6,7 @@ import TokenRouter from "./tokenRouter";
 import RateLimiterService from "../services/utils/rateLimiterService";
 import UserRouter from "./userRouter";
 import AuthController from "../controllers/authController";
+import PaymentRouter from "./paymentRouter";
 
 @injectable()
 export default class AppRouter {
@@ -17,7 +18,8 @@ export default class AppRouter {
     private tokenRouter: TokenRouter,
     private rateLimiter: RateLimiterService,
     private userRouter: UserRouter,
-    private authController: AuthController
+    private authController: AuthController,
+    private paymentRouter: PaymentRouter
   ) {
     this.appRouter = Router();
     this.initializeRoutes();
@@ -45,5 +47,6 @@ export default class AppRouter {
       this.authController.authenticate,
       this.userRouter.userRouter
     );
+    this.appRouter.use("/payments", this.paymentRouter.paymentRouter);
   }
 }

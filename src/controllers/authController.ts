@@ -53,13 +53,19 @@ export default class AuthController {
     return this.apiResponse
       .auth(
         "User registered successfully",
-        { accessToken, refreshToken, tokenType: "Bearer", expiresIn: "15m" },
+        {
+          accessToken,
+          refreshToken,
+          tokenType: "Bearer",
+          expiresIn: this.jwt.accessTokenExpiry,
+        },
         {
           _id: newUser._id,
           email: newUser.email,
           fullName: newUser.fullName,
           image: newUser.image || "",
-          phone: newUser.phone || "",
+          phone: newUser.phone || "+237 --- --- ---",
+          provider: newUser.provider,
         }
       )
       .send(res, 201);
@@ -93,14 +99,15 @@ export default class AuthController {
                 accessToken,
                 refreshToken,
                 tokenType: "Bearer",
-                expiresIn: "1m",
+                expiresIn: this.jwt.accessTokenExpiry,
               },
               {
                 _id: user._id,
                 email: user.email,
                 fullName: user.fullName,
                 image: user.image || "",
-                phone: user.phone || "",
+                phone: user.phone || "+237 --- --- ---",
+                provider: user.provider,
               }
             )
             .send(res, 200);
@@ -156,14 +163,15 @@ export default class AuthController {
             accessToken,
             refreshToken,
             tokenType: "Bearer",
-            expiresIn: "1m",
+            expiresIn: this.jwt.accessTokenExpiry,
           },
           {
             _id: user._id,
             email: user.email,
             fullName: user.fullName,
             image: user.image || "",
-            phone: user.phone || "",
+            phone: user.phone || "+237 --- --- ---",
+            provider: user.provider,
           }
         )
         .send(res, 200);
@@ -236,6 +244,8 @@ export default class AuthController {
   refreshToken = this.asyncHandler.handler(
     async (req: Request, res: Response) => {
       const { refreshToken } = req.body;
+
+      // console.log("Refresh token request received:", refreshToken);
 
       if (!refreshToken) {
         return this.apiResponse.error("Refresh token required").send(res, 401);

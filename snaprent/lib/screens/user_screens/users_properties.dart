@@ -2,10 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:snaprent/core/constant.dart';
 import 'package:snaprent/core/mock_data.dart';
+import 'package:snaprent/screens/property_screens/update_property_screen.dart';
 import 'package:snaprent/services/api_service.dart';
 import 'package:snaprent/widgets/safe_scaffold.dart';
+import 'package:snaprent/services/screen_guard.dart';
 import 'package:snaprent/widgets/snack_bar.dart';
 import 'package:shimmer/shimmer.dart';
+import 'package:cached_network_image/cached_network_image.dart'; // Import this
+import 'dart:ui' as ui;
 
 class UsersPropertiesScreen extends ConsumerStatefulWidget {
   const UsersPropertiesScreen({super.key});
@@ -107,6 +111,8 @@ class _UsersPropertiesScreenState extends ConsumerState<UsersPropertiesScreen> {
       final api = ref.read(apiServiceProvider);
       final data = await api.get('properties/owner', filter);
 
+      print('Fetched properties data: $data');
+
       if (!mounted) return;
 
       List<dynamic> fetchedProperties = [];
@@ -143,7 +149,12 @@ class _UsersPropertiesScreenState extends ConsumerState<UsersPropertiesScreen> {
   }
 
   Future<void> _updateProperty(Map<String, dynamic> property) async {
-    // Navigate to update property screen
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) =>
+            ScreenGuard(screen: UpdatePropertyScreen(property: property)),
+      ),
+    );
   }
 
   Widget _buildShimmerPropertyCard() {
@@ -206,7 +217,7 @@ class _UsersPropertiesScreenState extends ConsumerState<UsersPropertiesScreen> {
             child: Row(
               children: [
                 // Date filter
-                Icon(Icons.date_range, size: 16, color: Colors.indigo),
+                const Icon(Icons.date_range, size: 16, color: Colors.indigo),
                 const SizedBox(width: 8),
                 DropdownButton<String?>(
                   value: selectedDate,
@@ -226,7 +237,7 @@ class _UsersPropertiesScreenState extends ConsumerState<UsersPropertiesScreen> {
                 ),
                 const SizedBox(width: 24),
                 // Status filter
-                Icon(Icons.check_circle, size: 16, color: Colors.indigo),
+                const Icon(Icons.check_circle, size: 16, color: Colors.indigo),
                 const SizedBox(width: 8),
                 DropdownButton<String?>(
                   value: selectedStatus,
@@ -308,11 +319,15 @@ class _UsersPropertiesScreenState extends ConsumerState<UsersPropertiesScreen> {
                     onRefresh: _refreshProperties,
                     child: ListView.builder(
                       controller: _scrollController,
-                      padding: const EdgeInsets.all(16),
+                      padding: const EdgeInsets.all(4),
                       itemCount: properties.length + (isFetchingMore ? 1 : 0),
                       itemBuilder: (context, index) {
                         if (index < properties.length) {
-                          return _buildPropertyCard(properties[index]);
+                          return _buildPropertyCard(
+                            context,
+                            properties[index],
+                            _updateProperty,
+                          );
                         } else {
                           return _buildShimmerPropertyCard();
                         }
@@ -325,85 +340,163 @@ class _UsersPropertiesScreenState extends ConsumerState<UsersPropertiesScreen> {
     );
   }
 
-  Widget _buildPropertyCard(Map<String, dynamic> property) {
+  Widget _buildPropertyCard(
+    BuildContext context, // Add BuildContext to access Navigator
+    Map<String, dynamic> property,
+    Function(Map<String, dynamic>) onUpdatePressed,
+  ) {
+    // Check if the property status is false
+    final bool isInactive = property['status'] == false;
+
+    // The final design will be a single card
     return Card(
       margin: const EdgeInsets.symmetric(vertical: 8),
       elevation: 3,
       shadowColor: Colors.grey.shade300,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      clipBehavior:
+          Clip.hardEdge, // Use this to contain the image and its effects
+      child: Stack(
         children: [
-          ClipRRect(
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-            child: property['image'] != null
-                ? Image.network(
-                    property['image'],
-                    height: 180,
-                    width: double.infinity,
-                    fit: BoxFit.cover,
-                  )
-                : Container(
-                    height: 180,
-                    width: double.infinity,
-                    color: Colors.grey.shade200,
-                    child: const Icon(Icons.home, size: 60, color: Colors.grey),
-                  ),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(12),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  property['title'] ?? 'Untitled Property',
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              ClipRRect(
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(16),
                 ),
-                const SizedBox(height: 8),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    TextButton.icon(
-                      onPressed: () => {},
-                      icon: Icon(
-                        property['status'] ?? false
-                            ? Icons.check_circle
-                            : Icons.cancel,
-                        color: property['status'] ?? false
-                            ? Colors.green
-                            : Colors.red,
-                      ),
-                      label: Text(
-                        property['status'] ?? false ? "Active" : "Inactive",
-                        style: TextStyle(
-                          color: property['status'] ?? false
-                              ? Colors.green
-                              : Colors.red,
-                        ),
-                      ),
-                    ),
-                    ElevatedButton(
-                      onPressed: () => _updateProperty(property),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.indigo,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                      child: Row(
-                        children: const [
-                          Icon(Icons.edit, size: 16, color: Colors.white),
-                          SizedBox(width: 8),
-                          Text("Update", style: TextStyle(color: Colors.white)),
+                child:
+                    property['images'] != null &&
+                        property['images'].isNotEmpty &&
+                        property['images'][0].isNotEmpty
+                    ? Stack(
+                        children: [
+                          CachedNetworkImage(
+                            imageUrl: property['images'][0],
+                            height: 180,
+                            width: double.infinity,
+                            fit: BoxFit.cover,
+                            placeholder: (context, url) => Shimmer.fromColors(
+                              baseColor: Colors.grey[300]!,
+                              highlightColor: Colors.grey[100]!,
+                              child: Container(
+                                height: 180,
+                                width: double.infinity,
+                                color: Colors.white,
+                              ),
+                            ),
+                            errorWidget: (context, url, error) => Container(
+                              height: 180,
+                              width: double.infinity,
+                              color: Colors.grey[200],
+                              child: const Icon(
+                                Icons.broken_image,
+                                size: 60,
+                                color: Colors.grey,
+                              ),
+                            ),
+                          ),
+                          // Apply blur effect if inactive
+                          if (isInactive)
+                            Positioned.fill(
+                              child: BackdropFilter(
+                                filter: ui.ImageFilter.blur(
+                                  sigmaX: 5.0,
+                                  sigmaY: 5.0,
+                                ),
+                                child: Container(
+                                  color: Colors.black.withOpacity(0.3),
+                                ),
+                              ),
+                            ),
                         ],
+                      )
+                    : Container(
+                        height: 180,
+                        width: double.infinity,
+                        color: Colors.grey.shade200,
+                        child: const Icon(
+                          Icons.home,
+                          size: 60,
+                          color: Colors.grey,
+                        ),
+                      ),
+              ),
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          property['title'] ?? 'Untitled Property',
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        // Display status text only, no icons
+                        Text(
+                          isInactive ? "Inactive" : "Active",
+                          style: TextStyle(
+                            color: isInactive ? Colors.red : Colors.green,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      property['description'] ?? 'No description provided.',
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+                    ),
+                    const SizedBox(height: 8),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          // Positioned update button in the bottom right corner
+          Positioned(
+            top: 12,
+            right: 12,
+            child: InkWell(
+              onTap: () => onUpdatePressed(property), // Use the callback
+              borderRadius: BorderRadius.circular(12),
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 8,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.transparent,
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.2),
+                      blurRadius: 5,
+                      offset: const Offset(0, 3),
+                    ),
+                  ],
+                ),
+                child: const Row(
+                  children: [
+                    Icon(Icons.edit, size: 16, color: Colors.white),
+                    SizedBox(width: 8),
+                    Text(
+                      "Update",
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
                       ),
                     ),
                   ],
                 ),
-              ],
+              ),
             ),
           ),
         ],

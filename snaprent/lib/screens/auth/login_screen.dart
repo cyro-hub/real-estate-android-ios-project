@@ -2,10 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:snaprent/core/constant.dart';
+import 'package:snaprent/l10n/app_localizations.dart';
 import 'package:snaprent/models/auth_state.dart';
-import 'package:snaprent/models/user_state.dart';
 import 'package:snaprent/providers/auth_provider.dart';
-import 'package:snaprent/providers/user_provider.dart';
 import 'package:snaprent/services/api_service.dart';
 import 'package:snaprent/widgets/btn_widgets/primary_btn.dart';
 import 'package:snaprent/widgets/btn_widgets/tertiary_btn.dart';
@@ -45,17 +44,19 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       final data = await api.post('auth', {
         'email': email,
         'password': password,
-      });
+      }, context);
 
       if (!data['success']) throw Exception("Login failed");
 
       final tokens = data['data']?['tokens'];
       final userJson = data['data']?['user'];
+
       final userModel = User(
         fullName: userJson['fullName'],
         email: userJson['email'],
         phone: userJson['phone'],
         image: userJson['image'],
+        provider: userJson['provider'],
       );
 
       final expiresIn = tokens['expiresIn']?.toString() ?? '15m';
@@ -66,10 +67,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         refreshToken: tokens['refreshToken'],
         expiresAt: expiresAt,
         userId: userJson["_id"],
+        user: userModel,
       );
 
       await ref.read(authProvider.notifier).login(authState);
-      ref.read(userProvider.notifier).setUser(userModel);
 
       if (!mounted) return;
       if (widget.redirectTo != null) {
@@ -82,11 +83,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         );
       }
     } catch (e) {
-      if (mounted) {
-        SnackbarHelper.show(context, "Login failed: $e", success: false);
-      }
+      if (!mounted) return;
+      SnackbarHelper.show(context, "Login failed: $e", success: false);
     } finally {
-      if (mounted) setState(() => _isLoading = false);
+      if (!mounted) return;
+      setState(() => _isLoading = false);
     }
   }
 
@@ -120,7 +121,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       final data = await api.post('auth/google', {
         'email': googleUser.email,
         'idToken': idToken,
-      });
+      }, context);
 
       final message = data['message'] ?? 'Login successful';
       if (mounted) SnackbarHelper.show(context, message, success: true);
@@ -145,6 +146,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         email: userJson['email'],
         phone: userJson['phone'],
         image: userJson['image'],
+        provider: userJson['provider'],
       );
 
       final authState = AuthState(
@@ -152,10 +154,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         refreshToken: tokens['refreshToken'],
         expiresAt: expiresAt,
         userId: userJson["_id"],
+        user: userModel,
       );
 
       await ref.read(authProvider.notifier).login(authState);
-      ref.read(userProvider.notifier).setUser(userModel);
 
       if (!mounted) return;
       if (widget.redirectTo != null) {
@@ -168,15 +170,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         );
       }
     } catch (e) {
-      if (mounted) {
-        SnackbarHelper.show(
-          context,
-          "Google Sign-In failed: $e",
-          success: false,
-        );
-      }
+      if (!mounted) return;
+      SnackbarHelper.show(context, "Google Sign-In failed: $e", success: false);
     } finally {
-      if (mounted) setState(() => _isLoading = false);
+      if (!mounted) return;
+      setState(() => _isLoading = false);
     }
   }
 
@@ -226,6 +224,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+
     return Scaffold(
       backgroundColor: Colors.grey[100],
       body: Stack(
@@ -243,9 +243,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       height: 150,
                       fit: BoxFit.contain,
                     ),
-                    const Text(
-                      "Login",
-                      style: TextStyle(
+                    Text(
+                      " ${l10n.login}",
+                      style: const TextStyle(
                         fontSize: 28,
                         fontWeight: FontWeight.bold,
                         color: Colors.indigo,
@@ -254,7 +254,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     const SizedBox(height: 16),
                     _buildTextField(
                       controller: _emailController,
-                      label: "Email",
+                      label: "${l10n.email}",
                       icon: Icons.email,
                       validator: (value) {
                         if (value == null || value.trim().isEmpty)

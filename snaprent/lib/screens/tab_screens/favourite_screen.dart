@@ -19,13 +19,9 @@ class _FavouriteScreenState extends ConsumerState<FavouriteScreen>
   List<Map<String, dynamic>> favouriteProperties = [];
   bool isLoading = true;
 
-  // The ApiService instance is no longer manually created here.
-  // We'll access it directly from the `ref` object.
-
   @override
   void initState() {
     super.initState();
-    // Removed the manual instantiation of ApiService.
   }
 
   @override
@@ -63,10 +59,10 @@ class _FavouriteScreenState extends ConsumerState<FavouriteScreen>
     }
 
     try {
-      // Correct Riverpod usage: read the provider
       final data = await ref.read(apiServiceProvider).post(
         'properties/favourite',
         {'favIds': favIds},
+        context,
       );
 
       if (mounted) {
@@ -102,22 +98,23 @@ class _FavouriteScreenState extends ConsumerState<FavouriteScreen>
   @override
   Widget build(BuildContext context) {
     return SafeScaffold(
+      // The RefreshIndicator should wrap the entire scrollable content
       child: RefreshIndicator(
         onRefresh: _loadFavorites,
         child: SingleChildScrollView(
+          // Ensures the refresh gesture is always available
           physics: const AlwaysScrollableScrollPhysics(),
-          padding: const EdgeInsets.all(12),
           child: Column(
             children: [
               if (isLoading)
-                const SizedBox(
-                  height: 400,
-                  child: Center(child: CircularProgressIndicator()),
+                SizedBox(
+                  height: MediaQuery.of(context).size.height * 0.75,
+                  child: const Center(child: CircularProgressIndicator()),
                 )
               else if (favouriteProperties.isEmpty)
-                const SizedBox(
-                  height: 400,
-                  child: Center(
+                SizedBox(
+                  height: MediaQuery.of(context).size.height * 0.75,
+                  child: const Center(
                     child: Text(
                       "No favourites yet 🤔",
                       style: TextStyle(
@@ -128,131 +125,140 @@ class _FavouriteScreenState extends ConsumerState<FavouriteScreen>
                   ),
                 )
               else
-                GridView.builder(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  itemCount: favouriteProperties.length,
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 2,
-                    mainAxisSpacing: 12,
-                    crossAxisSpacing: 12,
-                    childAspectRatio: 0.75,
-                  ),
-                  itemBuilder: (context, index) {
-                    final property = favouriteProperties[index];
-                    final image =
-                        property["image"] ?? "https://via.placeholder.com/150";
-                    final title = property["title"] ?? "";
-                    final town = property["town"] ?? "";
-                    final quarter = property["quarter"] ?? "";
-                    final price = property["rentAmount"] ?? 0;
-                    final currency = property["currency"] ?? "FCFA";
-                    final frequency = property["paymentFrequency"] ?? "monthly";
-                    final propertyId = property["_id"];
+                Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: GridView.builder(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    itemCount: favouriteProperties.length,
+                    gridDelegate:
+                        const SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 2,
+                          mainAxisSpacing: 12,
+                          crossAxisSpacing: 12,
+                          childAspectRatio: 0.75,
+                        ),
+                    itemBuilder: (context, index) {
+                      final property = favouriteProperties[index];
+                      final image =
+                          property["image"] ??
+                          "https://via.placeholder.com/150";
+                      final title = property["title"] ?? "";
+                      final town = property["town"] ?? "";
+                      final quarter = property["quarter"] ?? "";
+                      final price = property["rentAmount"] ?? 0;
+                      final currency = property["currency"] ?? "FCFA";
+                      final frequency =
+                          property["paymentFrequency"] ?? "monthly";
+                      final propertyId = property["_id"];
 
-                    return GestureDetector(
-                      onTap: () {
-                        // Navigate to property detail page
-                      },
-                      child: Card(
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        elevation: 4,
-                        clipBehavior: Clip.hardEdge,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Expanded(
-                              child: Stack(
-                                children: [
-                                  Positioned.fill(
-                                    child: CachedNetworkImage(
-                                      imageUrl: image,
-                                      fit: BoxFit.cover,
-                                      placeholder: (context, url) => Container(
-                                        color: Colors.grey[300],
-                                        child: const Center(
-                                          child: CircularProgressIndicator(),
-                                        ),
-                                      ),
-                                      errorWidget: (context, url, error) =>
-                                          Container(
-                                            color: Colors.grey[300],
-                                            child: const Center(
-                                              child: Icon(Icons.error),
+                      return GestureDetector(
+                        onTap: () {
+                          // Navigate to property detail page
+                        },
+                        child: Card(
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          elevation: 4,
+                          clipBehavior: Clip.hardEdge,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Expanded(
+                                child: Stack(
+                                  children: [
+                                    Positioned.fill(
+                                      child: CachedNetworkImage(
+                                        imageUrl: image,
+                                        fit: BoxFit.cover,
+                                        placeholder: (context, url) =>
+                                            Container(
+                                              color: Colors.grey[300],
+                                              child: const Center(
+                                                child:
+                                                    CircularProgressIndicator(),
+                                              ),
                                             ),
+                                        errorWidget: (context, url, error) =>
+                                            Container(
+                                              color: Colors.grey[300],
+                                              child: const Center(
+                                                child: Icon(Icons.error),
+                                              ),
+                                            ),
+                                      ),
+                                    ),
+                                    Positioned(
+                                      top: 8,
+                                      right: 8,
+                                      child: GestureDetector(
+                                        onTap: () =>
+                                            _toggleFavorite(propertyId),
+                                        child: Container(
+                                          padding: const EdgeInsets.all(6),
+                                          decoration: const BoxDecoration(
+                                            color: Colors.black45,
+                                            shape: BoxShape.circle,
+                                            boxShadow: [
+                                              BoxShadow(
+                                                color: Colors.black45,
+                                                blurRadius: 6,
+                                                offset: Offset(0, 2),
+                                              ),
+                                            ],
                                           ),
-                                    ),
-                                  ),
-                                  Positioned(
-                                    top: 8,
-                                    right: 8,
-                                    child: GestureDetector(
-                                      onTap: () => _toggleFavorite(propertyId),
-                                      child: Container(
-                                        padding: const EdgeInsets.all(6),
-                                        decoration: BoxDecoration(
-                                          color: Colors.black45,
-                                          shape: BoxShape.circle,
-                                          boxShadow: const [
-                                            BoxShadow(
-                                              color: Colors.black45,
-                                              blurRadius: 6,
-                                              offset: Offset(0, 2),
-                                            ),
-                                          ],
-                                        ),
-                                        child: const Icon(
-                                          Icons.favorite,
-                                          color: Colors.red,
-                                          size: 20,
+                                          child: const Icon(
+                                            Icons.favorite,
+                                            color: Colors.red,
+                                            size: 20,
+                                          ),
                                         ),
                                       ),
                                     ),
-                                  ),
-                                ],
+                                  ],
+                                ),
                               ),
-                            ),
-                            Padding(
-                              padding: const EdgeInsets.all(8.0),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    title,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: const TextStyle(
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.bold,
+                              Padding(
+                                padding: const EdgeInsets.all(8.0),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      title,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.bold,
+                                      ),
                                     ),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    "$town • $quarter",
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      color: Colors.grey[600],
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      "$town • $quarter",
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: Colors.grey[600],
+                                      ),
                                     ),
-                                  ),
-                                  const SizedBox(height: 6),
-                                  Text(
-                                    "${formatPrice(price)} $currency / $frequency",
-                                    style: const TextStyle(
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.w600,
-                                      color: Colors.green,
+                                    const SizedBox(height: 6),
+                                    Text(
+                                      "${formatPrice(price)} $currency / $frequency",
+                                      style: const TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w600,
+                                        color: Colors.green,
+                                      ),
                                     ),
-                                  ),
-                                ],
+                                  ],
+                                ),
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
-                      ),
-                    );
-                  },
+                      );
+                    },
+                  ),
                 ),
             ],
           ),
